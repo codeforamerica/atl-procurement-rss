@@ -1,6 +1,6 @@
 require 'rubygems'
 require 'sinatra'
-require 'mixpanel'
+require 'mixpanel-ruby'
 
 require 'open-uri'
 require 'nokogiri'
@@ -11,14 +11,12 @@ require 'awesome_print'
 require 'uuid'
 require 'atom'
 
-# Set Mixpanel for analytics
-# TODO: Fill in Mixpanel API token with an environment variable.
-#use Mixpanel::Tracker::Middleware, 'MIXPANEL_TOKEN'
+before do
+  content_type :xml
 
-#before do
-  # TODO: Fill in Mixpanel API token with an environment variable.
-  #@mixpanel = Mixpanel::Tracker.new('MIXPANEL_TOKEN', request.env, true)
-#end
+  # Mixpanel token is set via 'heroku config:set MIXPANEL_TOKEN=whateverthetokenis'
+  @mixpanel = Mixpanel::Tracker.new(ENV['MIXPANEL_TOKEN'])
+end
 
 class AttributeFilter
   # Since Nokogiri (by way of libxml) only supports XPath 1.0, we're missing
@@ -28,23 +26,24 @@ class AttributeFilter
   end
 end
 
-before do
-  content_type :xml
-end
-
 get '/bids/procurement.xml' do
+  # TODO: Set unique user IDs for Mixpanel tracking.
+  @mixpanel.track('1', 'view-procurement')
   generate_xml('483')
 end
 
 get '/bids/watershed.xml' do
+  @mixpanel.track('1', 'view-watershed')
   generate_xml('486')
 end
 
 get '/bids/public-works.xml' do
+  @mixpanel.track('1', 'view-public-works')
   generate_xml('484')
 end
 
 get '/bids/general-funds.xml' do
+  @mixpanel.track('1', 'view-general-funds')
   generate_xml('482')
 end
 
