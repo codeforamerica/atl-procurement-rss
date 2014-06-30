@@ -133,7 +133,9 @@ def generate_xml(category)
         end
 
         entry.authors << contracting_officer
+        # TODO: Don't tie this date to when someone pulls the feed.
         entry.updated = Time.now.strftime("%Y-%m-%dT%H:%M:%SZ")
+        # TODO: Beef up this summary.
         entry.summary = "A bid announcement for #{ bid_opp[:name] }."
       end
     end
