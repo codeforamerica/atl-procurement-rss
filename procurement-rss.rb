@@ -28,22 +28,22 @@ end
 
 get '/bids/procurement.xml' do
   # TODO: Set unique user IDs for Mixpanel tracking.
-  @mixpanel.track('1', 'view-procurement')
+  @mixpanel.track('1', 'Added Procurement feed')
   generate_xml('483')
 end
 
 get '/bids/watershed.xml' do
-  @mixpanel.track('1', 'view-watershed')
+  @mixpanel.track('1', 'Added Watershed feed')
   generate_xml('486')
 end
 
 get '/bids/public-works.xml' do
-  @mixpanel.track('1', 'view-public-works')
+  @mixpanel.track('1', 'Added Public Works feed')
   generate_xml('484')
 end
 
 get '/bids/general-funds.xml' do
-  @mixpanel.track('1', 'view-general-funds')
+  @mixpanel.track('1', 'Added General Funds feed')
   generate_xml('482')
 end
 
