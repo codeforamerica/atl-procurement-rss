@@ -128,6 +128,19 @@ def generate_xml(category)
       feed.entries << Atom::Entry.new do |entry|
         entry.id = "urn:uuid:#{ UUID.new.generate }"
         entry.title = "#{ bid_opp[:project_id] } - #{ bid_opp[:name].to_s }"
+        entry_content = %Q{
+          <p>
+            A bid announcement for #{ bid_opp[:name] }.
+          </p>
+          <p>
+            Included files:
+            <ol>
+              #{ bid_opp[:enclosures].collect { |enclosure| %{<li><a href="#{ enclosure[:href] }">#{ enclosure[:name] }</a></li>} }.join }
+            </ol>
+          </p>
+        }
+
+        entry.content = Atom::Content::Html.new(entry_content)
 
         bid_opp[:enclosures].each do |enclosure|
           _enclosure = Atom::Link.new(title: enclosure[:name], href: enclosure[:href], rel: "enclosure", type: "application/pdf")
