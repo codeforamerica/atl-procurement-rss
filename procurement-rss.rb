@@ -122,7 +122,7 @@ def generate_xml(category)
       if bid_opp[:contracting_officer]
         # Clean up names
         name = bid_opp[:contracting_officer][:name].gsub(/(Mr|Mrs|Ms)\.*/i, "").gsub(/,\s+(Contracting Officer|Contract Administrator)/i, "").strip
-        contracting_officer = Atom::Person.new(name: name, email: bid_opp[:contracting_officer][:href])
+        contracting_officer = Atom::Person.new(name: name, email: bid_opp[:contracting_officer][:href], uri: "http://atlantaga.gov/index.aspx?page=#{ category }")
       end
 
       feed.entries << Atom::Entry.new do |entry|
