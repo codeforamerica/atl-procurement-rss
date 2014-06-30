@@ -121,7 +121,7 @@ get '/procurement.xml' do
     end
   end
 
-  File.open("/Users/tiffani/Desktop/rss-procurement.xml", "w") { |f| f.write(atom.to_xml)}
+  #File.open("/Users/tiffani/Desktop/rss-procurement.xml", "w") { |f| f.write(atom.to_xml)}
 
   atom.to_xml
 end
