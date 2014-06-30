@@ -8,17 +8,17 @@ require 'rss'
 
 require 'pry'
 require 'awesome_print'
-require 'atom'
 require 'uuid'
+require 'atom'
 
 # Set Mixpanel for analytics
 # TODO: Fill in Mixpanel API token with an environment variable.
-use Mixpanel::Tracker::Middleware, 'MIXPANEL_TOKEN'
+#use Mixpanel::Tracker::Middleware, 'MIXPANEL_TOKEN'
 
-before do
+#before do
   # TODO: Fill in Mixpanel API token with an environment variable.
-  @mixpanel = Mixpanel::Tracker.new('MIXPANEL_TOKEN', request.env, true)
-end
+  #@mixpanel = Mixpanel::Tracker.new('MIXPANEL_TOKEN', request.env, true)
+#end
 
 class AttributeFilter
   # Since Nokogiri (by way of libxml) only supports XPath 1.0, we're missing
@@ -26,24 +26,6 @@ class AttributeFilter
   def contains_text node_set, text
     node_set.find_all { |node| node.to_s =~ /#{ text }/i }
   end
-end
-
-@attr_filter = AttributeFilter.new
-
-get '/watershed/rss.xml' do
-
-end
-
-get '/procurement/rss.xml' do
-
-end
-
-get '/general-funds/rss.xml' do
-
-end
-
-get '/public-works/rss.xml' do
-
 end
 
 # XPaths yanked from WebKit. w00t.
@@ -59,83 +41,87 @@ xpaths = {
              name: 'Procurement RFPs'}
 }
 
-doc = Nokogiri::HTML(open("http://www.atlantaga.gov/index.aspx?page=482")).remove_namespaces!
+get '/procurement.xml' do
+  content_type :xml
 
-bid_table = doc.xpath(xpaths['482'][:xpath], @attr_filter)
+  doc = Nokogiri::HTML(open("http://www.atlantaga.gov/index.aspx?page=482")).remove_namespaces!
 
-@bid_opportunities = []
+  bid_table = doc.xpath(xpaths['482'][:xpath], AttributeFilter.new)
 
-bid_table.each do |bid|
-  _bid = {}
+  @bid_opportunities = []
 
-  # Try a few things to get the project number.
-  _bid[:project_id] = bid.xpath(".//tr[contains_text(., 'Project number')]/td[2]", @attr_filter)[0].content
+  bid_table.each do |bid|
+    _bid = {}
 
-  # Project name
-  # For 483, there is no project number set out separately.
-  _bid[:name] = bid.xpath(".//tr[contains_text(., 'Project name')]/td[2]", @attr_filter)[0].content
+    # Try a few things to get the project number.
+    _bid[:project_id] = bid.xpath(".//tr[contains_text(., 'Project number')]/td[2]", AttributeFilter.new)[0].content
 
-  # Set up enclosures...!
-  _enclosures = bid.xpath(".//a")
-  @enclosures = []
-
-  debugger
-
-  _enclosures.each do |enclosure|
-    _enclosure = {}
-    _enclosure[:name] = enclosure.content
-
-    if enclosure["href"] && enclosure["href"].to_s.include?("mailto:")
-      _enclosure[:href] = enclosure["href"][7, enclosure["href"].length]
-    elsif enclosure["href"]
-      _enclosure[:href] = "http://atlantaga.gov/#{ enclosure["href"] }"
+    # Project name
+    # For 483, there is no project number set out separately.
+    project_name = bid.xpath(".//tr[contains_text(., 'Project name')]/td[2]", AttributeFilter.new)[0]
+    if project_name != nil
+      _bid[:name] = project_name.content
     end
 
-    @enclosures << _enclosure
-  end
+    # Set up enclosures...!
+    _enclosures = bid.xpath(".//a")
+    @enclosures = []
 
-  _last = @enclosures.last
+    _enclosures.each do |enclosure|
+      _enclosure = {}
+      _enclosure[:name] = enclosure.content
 
-  #debugger
-  if _last[:href].include?("@atlantaga.gov")
-    _bid[:contracting_officer] = @enclosures.pop
-  end
-
-  _bid[:enclosures] = @enclosures
-
-  @bid_opportunities << _bid
-end
-
-atom = Atom::Feed.new do |feed|
-  feed.id = "urn:uuid:#{ UUID.new.generate }"
-  feed.title = "City of Atlanta - Department of Procurement"
-  feed.updated = Time.now.strftime("%Y-%m-%dT%H:%M:%SZ")
-  feed.authors << Atom::Person.new(name: "Department of Procurement", email: "tiffani+DOP@codeforamerica.org")
-  feed.generator = Atom::Generator.new(name: "Supply", version: "1.0", uri: "http://atlantaga.gov/procurement")
-  feed.categories << Atom::Category.new(label: "#{ xpaths['482'][:name] }", term: "#{ xpaths['482'][:name] }")
-  feed.rights = "Unless otherwise noted, the content, data, and documents offered through this ATOM feed are public domain and made available with a Creative Commons CC0 1.0 Universal dedication. https://creativecommons.org/publicdomain/zero/1.0/"
-
-  @bid_opportunities.each do |bid_opp|
-    if bid_opp[:contracting_officer]
-      contracting_officer = Atom::Person.new(name: bid_opp[:contracting_officer][:name], email: bid_opp[:contracting_officer][:href])
-    end
-
-    feed.entries << Atom::Entry.new do |entry|
-      entry.id = "urn:uuid:#{ UUID.new.generate }"
-      entry.title = "#{ bid_opp[:project_id] } - #{ bid_opp[:name].to_s }"
-
-      bid_opp[:enclosures].each do |enclosure|
-        _enclosure = Atom::Link.new(title: enclosure[:name], href: enclosure[:href], rel: "enclosure", type: "application/pdf")
-        entry.links << _enclosure
+      if enclosure["href"] && enclosure["href"].to_s.include?("mailto:")
+        _enclosure[:href] = enclosure["href"][7, enclosure["href"].length]
+      elsif enclosure["href"]
+        _enclosure[:href] = "http://atlantaga.gov/#{ enclosure["href"] }"
       end
 
-      entry.authors << contracting_officer
-      entry.updated = Time.now.strftime("%Y-%m-%dT%H:%M:%SZ")
-      entry.summary = "A bid announcement for #{ bid_opp[:name] }."
+      @enclosures << _enclosure
+    end
+
+    _last = @enclosures.last
+
+    if _last[:href].include?("@atlantaga.gov")
+      _bid[:contracting_officer] = @enclosures.pop
+    end
+
+    _bid[:enclosures] = @enclosures
+
+    @bid_opportunities << _bid
+  end
+
+  atom = Atom::Feed.new do |feed|
+    feed.id = "urn:uuid:#{ UUID.new.generate }"
+    feed.title = "City of Atlanta - Department of Procurement"
+    feed.updated = Time.now.strftime("%Y-%m-%dT%H:%M:%SZ")
+    feed.authors << Atom::Person.new(name: "Department of Procurement", email: "tiffani+DOP@codeforamerica.org")
+    feed.generator = Atom::Generator.new(name: "Supply", version: "1.0", uri: "http://atlantaga.gov/procurement")
+    feed.categories << Atom::Category.new(label: "#{ xpaths['482'][:name] }", term: "#{ xpaths['482'][:name] }")
+    feed.rights = "Unless otherwise noted, the content, data, and documents offered through this ATOM feed are public domain and made available with a Creative Commons CC0 1.0 Universal dedication. https://creativecommons.org/publicdomain/zero/1.0/"
+
+    @bid_opportunities.each do |bid_opp|
+      if bid_opp[:contracting_officer]
+        contracting_officer = Atom::Person.new(name: bid_opp[:contracting_officer][:name], email: bid_opp[:contracting_officer][:href])
+      end
+
+      feed.entries << Atom::Entry.new do |entry|
+        entry.id = "urn:uuid:#{ UUID.new.generate }"
+        entry.title = "#{ bid_opp[:project_id] } - #{ bid_opp[:name].to_s }"
+
+        bid_opp[:enclosures].each do |enclosure|
+          _enclosure = Atom::Link.new(title: enclosure[:name], href: enclosure[:href], rel: "enclosure", type: "application/pdf")
+          entry.links << _enclosure
+        end
+
+        entry.authors << contracting_officer
+        entry.updated = Time.now.strftime("%Y-%m-%dT%H:%M:%SZ")
+        entry.summary = "A bid announcement for #{ bid_opp[:name] }."
+      end
     end
   end
+
+  File.open("/Users/tiffani/Desktop/rss-procurement.xml", "w") { |f| f.write(atom.to_xml)}
+
+  atom.to_xml
 end
-
-puts atom.to_xml
-
-File.open("/Users/tiffani/Desktop/rss-procurement.xml", "w") { |f| f.write(atom.to_xml)}

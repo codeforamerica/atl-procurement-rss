@@ -1,2 +1,3 @@
-require './rss-procurement'
+require './procurement-rss'
+
 run Sinatra::Application
