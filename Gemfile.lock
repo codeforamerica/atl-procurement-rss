@@ -17,17 +17,12 @@ GEM
     coderay (1.1.0)
     columnize (0.8.9)
     debugger-linecache (1.2.0)
-    escape (0.0.4)
-    json (1.8.1)
     libxml-ruby (2.6.0)
     macaddr (1.7.1)
       systemu (~> 2.6.2)
     method_source (0.8.2)
     mini_portile (0.6.0)
-    mixpanel (4.1.1)
-      escape
-      json
-      rack
+    mixpanel-ruby (1.3.0)
     nokogiri (1.6.2.1)
       mini_portile (= 0.6.0)
     pry (0.9.12.6)
@@ -53,7 +48,7 @@ PLATFORMS
 
 DEPENDENCIES
   awesome_print
-  mixpanel
+  mixpanel-ruby
   nokogiri
   pry-byebug
   rack
