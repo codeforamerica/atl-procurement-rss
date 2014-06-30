@@ -120,7 +120,9 @@ def generate_xml(category)
 
     @bid_opportunities.each do |bid_opp|
       if bid_opp[:contracting_officer]
-        contracting_officer = Atom::Person.new(name: bid_opp[:contracting_officer][:name], email: bid_opp[:contracting_officer][:href])
+        # Clean up names
+        name = bid_opp[:contracting_officer][:name].gsub(/Mr\./, "").strip
+        contracting_officer = Atom::Person.new(name: name, email: bid_opp[:contracting_officer][:href])
       end
 
       feed.entries << Atom::Entry.new do |entry|
