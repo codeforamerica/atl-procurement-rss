@@ -28,25 +28,44 @@ class AttributeFilter
   end
 end
 
-# XPaths yanked from WebKit. w00t.
-xpaths = {
-  # Watershed RFPs
-  '486' => {  xpath: %{//*[@id="ctl00_content_Screen"]/table/tbody/tr[1]/td[1]/table[contains_text(., 'Award')]},
-              name: 'Watershed RFPs' },
-  '484' => { xpath: %{//*[@id="ctl00_content_Screen"]/table[2]/tbody/tr/td[1]/table[contains_text(., 'Award')]},
-              name: 'Public Works RFPs'},
-  '482' => { xpath: %{//*[@id="ctl00_content_Screen"]/table[contains_text(., 'Award')]},
-              name: 'General Funds RFPs' },
-  '483' => { xpath: %{//*[@id="ctl00_content_Screen"]/table[contains_text(., 'Award')]},
-             name: 'Procurement RFPs'}
-}
-
-get '/procurement.xml' do
+before do
   content_type :xml
+end
 
-  doc = Nokogiri::HTML(open("http://www.atlantaga.gov/index.aspx?page=482")).remove_namespaces!
+get '/bids/procurement.xml' do
+  generate_xml('483')
+end
 
-  bid_table = doc.xpath(xpaths['482'][:xpath], AttributeFilter.new)
+get '/bids/watershed.xml' do
+  generate_xml('486')
+end
+
+get '/bids/public-works.xml' do
+  generate_xml('484')
+end
+
+get '/bids/general-funds.xml' do
+  generate_xml('482')
+end
+
+def generate_xml(category)
+  # XPaths yanked from WebKit. w00t.
+  xpaths = {
+    # Watershed RFPs
+    '486' => {  xpath: %{//*[@id="ctl00_content_Screen"]/table/tbody/tr[1]/td[1]/table[contains_text(., 'Award')]},
+                name: 'Watershed RFPs' },
+    '484' => { xpath: %{//*[@id="ctl00_content_Screen"]/table[2]/tbody/tr/td[1]/table[contains_text(., 'Award')]},
+                name: 'Public Works RFPs'},
+    '482' => { xpath: %{//*[@id="ctl00_content_Screen"]/table[contains_text(., 'Award')]},
+                name: 'General Funds RFPs' },
+    '483' => { xpath: %{//*[@id="ctl00_content_Screen"]/table[contains_text(., 'Award')]},
+               name: 'Procurement RFPs'}
+  }
+
+  return unless category
+
+  doc = Nokogiri::HTML(open("http://www.atlantaga.gov/index.aspx?page=#{ category }")).remove_namespaces!
+  bid_table = doc.xpath(xpaths[category][:xpath], AttributeFilter.new)
 
   @bid_opportunities = []
 
@@ -97,7 +116,7 @@ get '/procurement.xml' do
     feed.updated = Time.now.strftime("%Y-%m-%dT%H:%M:%SZ")
     feed.authors << Atom::Person.new(name: "Department of Procurement", email: "tiffani+DOP@codeforamerica.org")
     feed.generator = Atom::Generator.new(name: "Supply", version: "1.0", uri: "http://atlantaga.gov/procurement")
-    feed.categories << Atom::Category.new(label: "#{ xpaths['482'][:name] }", term: "#{ xpaths['482'][:name] }")
+    feed.categories << Atom::Category.new(label: "#{ xpaths[category][:name] }", term: "#{ xpaths[category][:name] }")
     feed.rights = "Unless otherwise noted, the content, data, and documents offered through this ATOM feed are public domain and made available with a Creative Commons CC0 1.0 Universal dedication. https://creativecommons.org/publicdomain/zero/1.0/"
 
     @bid_opportunities.each do |bid_opp|
