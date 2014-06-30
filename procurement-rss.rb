@@ -111,7 +111,7 @@ def generate_xml(category)
 
   atom = Atom::Feed.new do |feed|
     feed.id = "urn:uuid:#{ UUID.new.generate }"
-    feed.title = "City of Atlanta - Department of Procurement"
+    feed.title = "City of Atlanta - #{ xpaths[category][:name] } RFPs"
     feed.updated = Time.now.strftime("%Y-%m-%dT%H:%M:%SZ")
     feed.authors << Atom::Person.new(name: "Department of Procurement", email: "tiffani+DOP@codeforamerica.org")
     feed.generator = Atom::Generator.new(name: "Supply", version: "1.0", uri: "http://atlantaga.gov/procurement")
