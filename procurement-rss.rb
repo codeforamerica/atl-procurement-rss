@@ -142,7 +142,7 @@ def generate_xml(category)
               #{ "<li><strong>Proposal due date:</strong> #{ bid_opp[:due_date][0].content }</li>" unless bid_opp[:due_date].empty? }
           </p>
           <p>
-            Included files:
+            <strong>Included files:</strong><br />
             <ol>
               #{ bid_opp[:enclosures].collect { |enclosure| %{<li><a href="#{ enclosure[:href] }">#{ enclosure[:name] }</a> (PDF)</li>} }.join }
             </ol>
