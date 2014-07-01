@@ -76,7 +76,8 @@ def generate_xml(category)
 
     # Project name
     # For 483, there is no project number set out separately.
-    project_name = bid.xpath(".//tr[contains_text(., 'Project name')]/td[2]", AttributeFilter.new)[0]
+    project_name = bid.xpath(".//tr[contains_text(., 'Name')]/td[2]", AttributeFilter.new)[0]
+    
     if project_name != nil
       _bid[:name] = project_name.content
     end
