@@ -81,6 +81,9 @@ def generate_xml(category)
       _bid[:name] = project_name.content
     end
 
+    _bid[:due_date] = bid.xpath(".//tr[contains_text(., 'Due date')]/td[2]", AttributeFilter.new)
+    _bid[:prebid_conf_date] = bid.xpath(".//tr[contains_text(., '(PRE-BID|PRE-PROPOSAL) CONFERENCE DATE\s*\/\s*TIME')]/td[2]", AttributeFilter.new)
+
     # Set up enclosures...!
     _enclosures = bid.xpath(".//a")
     @enclosures = []
@@ -133,9 +136,15 @@ def generate_xml(category)
             A bid announcement for #{ bid_opp[:name] }.
           </p>
           <p>
+            <strong>Important dates:</strong><br />
+            <ul>
+              #{ "<li><strong>Pre-bid conference date:</strong> #{ bid_opp[:prebid_conf_date][0].content }</li>" unless bid_opp[:prebid_conf_date].empty? }
+              #{ "<li><strong>Proposal due date:</strong> #{ bid_opp[:due_date][0].content }</li>" unless bid_opp[:due_date].empty? }
+          </p>
+          <p>
             Included files:
             <ol>
-              #{ bid_opp[:enclosures].collect { |enclosure| %{<li><a href="#{ enclosure[:href] }">#{ enclosure[:name] }</a></li>} }.join }
+              #{ bid_opp[:enclosures].collect { |enclosure| %{<li><a href="#{ enclosure[:href] }">#{ enclosure[:name] }</a> (PDF)</li>} }.join }
             </ol>
           </p>
         }
