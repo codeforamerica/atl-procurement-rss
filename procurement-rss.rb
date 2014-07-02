@@ -77,13 +77,17 @@ def generate_xml(category)
     # Project name
     # For 483, there is no project number set out separately.
     project_name = bid.xpath(".//tr[contains_text(., 'Name')]/td[2]", AttributeFilter.new)[0]
-    
+
     if project_name != nil
       _bid[:name] = project_name.content
     end
 
     _bid[:due_date] = bid.xpath(".//tr[contains_text(., 'Due date')]/td[2]", AttributeFilter.new)
     _bid[:prebid_conf_date] = bid.xpath(".//tr[contains_text(., '(PRE-BID|PRE-PROPOSAL) CONFERENCE DATE\s*\/\s*TIME')]/td[2]", AttributeFilter.new)
+    _bid[:prebid_conf_location] = bid.xpath(".//tr[contains_text(., '(PRE-BID|PRE-PROPOSAL) CONFERENCE LOCATION\.*')]/td[2]", AttributeFilter.new)
+
+    _bid[:site_visit_info] = bid.xpath(".//tr[contains_text(., 'SITE.*VISIT.*DATE')]", AttributeFilter.new)
+    _bid[:site_visit_location] = bid.xpath(".//tr[contains_text(., 'SITE.*VISIT.*LOCATION')]", AttributeFilter.new)
 
     # Set up enclosures...!
     _enclosures = bid.xpath(".//a")
@@ -132,6 +136,19 @@ def generate_xml(category)
       feed.entries << Atom::Entry.new do |entry|
         entry.id = "urn:uuid:#{ UUID.new.generate }"
         entry.title = "#{ bid_opp[:project_id] } - #{ bid_opp[:name].to_s }"
+
+        unless bid_opp[:site_visit_info].empty?
+          site_visits = bid_opp[:site_visit_info].collect do |svi|
+            %Q{<li><strong>#{ svi.xpath(".//td[1]")[0].content.split.map(&:capitalize).join(' ') }:</strong> #{ svi.xpath(".//td[2]")[0].content }</li>}
+          end
+        end
+
+        unless bid_opp[:site_visit_location].empty?
+          site_visit_locations = bid_opp[:site_visit_location].collect do |svl|
+            %Q{<li><strong>#{ svl.xpath(".//td[1]")[0].content.split.map(&:capitalize).join(' ') }:</strong> #{ svl.xpath(".//td[2]")[0].content }</li>}
+          end
+        end
+
         entry_content = %Q{
           <p>
             A bid announcement for #{ bid_opp[:name] }.
@@ -140,7 +157,10 @@ def generate_xml(category)
             <strong>Important dates:</strong><br />
             <ul>
               #{ "<li><strong>Pre-bid conference date:</strong> #{ bid_opp[:prebid_conf_date][0].content }</li>" unless bid_opp[:prebid_conf_date].empty? }
+              #{ "<li><strong>Pre-bid conference location:</strong> #{ bid_opp[:prebid_conf_location][0].content }</li>" unless bid_opp[:prebid_conf_location].empty? }
               #{ "<li><strong>Proposal due date:</strong> #{ bid_opp[:due_date][0].content }</li>" unless bid_opp[:due_date].empty? }
+              #{ site_visits.join if site_visits }
+              #{ site_visit_locations.join if site_visit_locations }
             </ul>
           </p>
           <p>
