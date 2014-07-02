@@ -141,6 +141,7 @@ def generate_xml(category)
             <ul>
               #{ "<li><strong>Pre-bid conference date:</strong> #{ bid_opp[:prebid_conf_date][0].content }</li>" unless bid_opp[:prebid_conf_date].empty? }
               #{ "<li><strong>Proposal due date:</strong> #{ bid_opp[:due_date][0].content }</li>" unless bid_opp[:due_date].empty? }
+            </ul>
           </p>
           <p>
             <strong>Included files:</strong><br />
