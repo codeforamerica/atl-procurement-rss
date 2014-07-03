@@ -73,6 +73,7 @@ def generate_xml(category)
 
     # Try a few things to get the project number.
     _bid[:project_id] = bid.xpath(".//tr[contains_text(., 'Project number')]/td[2]", AttributeFilter.new)[0].content
+    _bid[:project_id] = _bid[:project_id].strip if _bid[:project_id]
 
     # Project name
     # For 483, there is no project number set out separately.
@@ -81,6 +82,8 @@ def generate_xml(category)
     if project_name != nil
       _bid[:name] = project_name.content
     end
+
+    _bid[:name] = _bid[:name].strip if _bid[:name]
 
     _bid[:due_date] = bid.xpath(".//tr[contains_text(., 'Due date')]/td[2]", AttributeFilter.new)
     _bid[:prebid_conf_date] = bid.xpath(".//tr[contains_text(., '(PRE-BID|PRE-PROPOSAL) CONFERENCE DATE\s*\/\s*TIME')]/td[2]", AttributeFilter.new)
@@ -103,7 +106,9 @@ def generate_xml(category)
         _enclosure[:href] = "http://atlantaga.gov/#{ enclosure["href"] }"
       end
 
-      @enclosures << _enclosure
+      # Some enclosures end up missing a 'title' element and are usually a duplicate
+      # of a previously included file with all the right info included.
+      @enclosures << _enclosure unless /\A[[:space:]]*\z/ === _enclosure[:name]
     end
 
     _last = @enclosures.last
