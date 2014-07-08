@@ -11,6 +11,12 @@ require 'awesome_print'
 require 'uuid'
 require 'atom'
 
+# Page IDs for scraping's sake!
+PROCUREMENT_RFPS = '483'
+WATERSHED_RFPS = '486'
+PUBLIC_WORKS_RFPS = '484'
+GENERAL_FUND_RFPS = '482'
+
 before do
   content_type :xml
 
@@ -29,35 +35,35 @@ end
 get '/bids/procurement.xml' do
   # TODO: Set unique user IDs for Mixpanel tracking.
   @mixpanel.track('1', 'Added Procurement feed')
-  generate_xml('483')
+  generate_xml(PROCUREMENT_RFPS)
 end
 
 get '/bids/watershed.xml' do
   @mixpanel.track('1', 'Added Watershed feed')
-  generate_xml('486')
+  generate_xml(WATERSHED_RFPS)
 end
 
 get '/bids/public-works.xml' do
   @mixpanel.track('1', 'Added Public Works feed')
-  generate_xml('484')
+  generate_xml(PUBLIC_WORKS_RFPS)
 end
 
 get '/bids/general-funds.xml' do
   @mixpanel.track('1', 'Added General Funds feed')
-  generate_xml('482')
+  generate_xml(GENERAL_FUND_RFPS)
 end
 
 def generate_xml(category)
   # XPaths yanked from WebKit. w00t.
   xpaths = {
     # Watershed RFPs
-    '486' => {  xpath: %{//*[@id="ctl00_content_Screen"]/table/tbody/tr[1]/td[1]/table[contains_text(., 'Award')]},
+    WATERSHED_RFPS => {  xpath: %{//*[@id="ctl00_content_Screen"]/table/tbody/tr[1]/td[1]/table[contains_text(., 'Award')]},
                 name: 'Watershed RFPs' },
-    '484' => { xpath: %{//*[@id="ctl00_content_Screen"]/table[2]/tbody/tr/td[1]/table[contains_text(., 'Award')]},
+    PUBLIC_WORKS_RFPS => { xpath: %{//*[@id="ctl00_content_Screen"]/table[2]/tbody/tr/td[1]/table[contains_text(., 'Award')]},
                 name: 'Public Works RFPs'},
-    '482' => { xpath: %{//*[@id="ctl00_content_Screen"]/table[contains_text(., 'Award')]},
+    GENERAL_FUND_RFPS => { xpath: %{//*[@id="ctl00_content_Screen"]/table[contains_text(., 'Award')]},
                 name: 'General Funds RFPs' },
-    '483' => { xpath: %{//*[@id="ctl00_content_Screen"]/table[contains_text(., 'Award')]},
+    PROCUREMENT_RFPS => { xpath: %{//*[@id="ctl00_content_Screen"]/table[contains_text(., 'Award')]},
                name: 'Procurement RFPs'}
   }
 
@@ -72,11 +78,15 @@ def generate_xml(category)
     _bid = {}
 
     # Try a few things to get the project number.
-    _bid[:project_id] = bid.xpath(".//tr[contains_text(., 'Project number')]/td[2]", AttributeFilter.new)[0].content
-    _bid[:project_id] = _bid[:project_id].strip if _bid[:project_id]
+    if category == PROCUREMENT_RFPS
+      _bid[:project_id] = bid.xpath(".//tr[contains_text(., 'Project name')]/td[2]", AttributeFilter.new)[0].content
+      _bid[:project_id] = _bid[:project_id].split(',')[0]
+    else
+      _bid[:project_id] = bid.xpath(".//tr[contains_text(., 'Project number')]/td[2]", AttributeFilter.new)[0].content
+      _bid[:project_id] = _bid[:project_id].strip if _bid[:project_id]
+    end
 
     # Project name
-    # For 483, there is no project number set out separately.
     project_name = bid.xpath(".//tr[contains_text(., 'Name')]/td[2]", AttributeFilter.new)[0]
 
     if project_name != nil
@@ -102,19 +112,14 @@ def generate_xml(category)
 
       if enclosure["href"] && enclosure["href"].to_s.include?("mailto:")
         _enclosure[:href] = enclosure["href"][7, enclosure["href"].length]
-      elsif enclosure["href"]
+        _bid[:contracting_officer] = _enclosure
+      elsif enclosure["href"].to_s.include?("showdocument.aspx")
         _enclosure[:href] = "http://atlantaga.gov/#{ enclosure["href"] }"
+
+        # Some enclosures end up missing a 'title' element and are usually a duplicate
+        # of a previously included file with all the right info included.
+        @enclosures << _enclosure unless /\A[[:space:]]*\z/ === _enclosure[:name]
       end
-
-      # Some enclosures end up missing a 'title' element and are usually a duplicate
-      # of a previously included file with all the right info included.
-      @enclosures << _enclosure unless /\A[[:space:]]*\z/ === _enclosure[:name]
-    end
-
-    _last = @enclosures.last
-
-    if _last[:href].include?("@atlantaga.gov")
-      _bid[:contracting_officer] = @enclosures.pop
     end
 
     _bid[:enclosures] = @enclosures
@@ -140,7 +145,12 @@ def generate_xml(category)
 
       feed.entries << Atom::Entry.new do |entry|
         entry.id = "urn:uuid:#{ UUID.new.generate }"
-        entry.title = "#{ bid_opp[:project_id] } - #{ bid_opp[:name].to_s }"
+
+        if category != PROCUREMENT_RFPS
+          entry.title = "#{ bid_opp[:project_id] } - #{ bid_opp[:name].to_s }"
+        else
+          entry.title = bid_opp[:name].to_s
+        end
 
         unless bid_opp[:site_visit_info].empty?
           site_visits = bid_opp[:site_visit_info].collect do |svi|
