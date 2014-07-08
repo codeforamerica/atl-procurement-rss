@@ -17,6 +17,9 @@ WATERSHED_RFPS = '486'
 PUBLIC_WORKS_RFPS = '484'
 GENERAL_FUND_RFPS = '482'
 
+EMPTY_STR = /\A[[:space:]]*\z/
+BLANK_STR = /\A[[:blank:]]*\z/
+
 before do
   content_type :xml
 
@@ -110,15 +113,17 @@ def generate_xml(category)
       _enclosure = {}
       _enclosure[:name] = enclosure.content
 
-      if enclosure["href"] && enclosure["href"].to_s.include?("mailto:")
-        _enclosure[:href] = enclosure["href"][7, enclosure["href"].length]
-        _bid[:contracting_officer] = _enclosure
-      elsif enclosure["href"].to_s.include?("showdocument.aspx")
-        _enclosure[:href] = "http://atlantaga.gov/#{ enclosure["href"] }"
+      unless BLANK_STR === _enclosure[:name]
+        if enclosure["href"] && enclosure["href"].to_s.include?("mailto:")
+          _enclosure[:href] = enclosure["href"][7, enclosure["href"].length]
+          _bid[:contracting_officer] = _enclosure
+        elsif enclosure["href"].to_s.include?("showdocument.aspx")
+          _enclosure[:href] = "http://atlantaga.gov/#{ enclosure["href"] }"
 
-        # Some enclosures end up missing a 'title' element and are usually a duplicate
-        # of a previously included file with all the right info included.
-        @enclosures << _enclosure unless /\A[[:space:]]*\z/ === _enclosure[:name]
+          # Some enclosures end up missing a 'title' element and are usually a duplicate
+          # of a previously included file with all the right info included.
+          @enclosures << _enclosure unless EMPTY_STR === _enclosure[:name]
+        end
       end
     end
 
