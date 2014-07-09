@@ -118,7 +118,7 @@ def generate_xml(category)
           _enclosure[:href] = enclosure["href"][7, enclosure["href"].length]
           _bid[:contracting_officer] = _enclosure
         elsif enclosure["href"].to_s.include?("showdocument.aspx")
-          _enclosure[:href] = "http://atlantaga.gov/#{ enclosure["href"] }"
+          _enclosure[:href] = "http://www.atlantaga.gov/#{ enclosure["href"] }"
 
           # Some enclosures end up missing a 'title' element and are usually a duplicate
           # of a previously included file with all the right info included.
@@ -137,7 +137,7 @@ def generate_xml(category)
     feed.title = "City of Atlanta - #{ xpaths[category][:name] }"
     feed.updated = Time.now.strftime("%Y-%m-%dT%H:%M:%SZ")
     feed.authors << Atom::Person.new(name: "Department of Procurement", email: "tiffani+DOP@codeforamerica.org")
-    feed.generator = Atom::Generator.new(name: "Supply", version: "1.0", uri: "http://atlantaga.gov/procurement")
+    feed.generator = Atom::Generator.new(name: "Supply", version: "1.0", uri: "http://www.atlantaga.gov/procurement")
     feed.categories << Atom::Category.new(label: "#{ xpaths[category][:name] }", term: "#{ xpaths[category][:name] }")
     feed.rights = "Unless otherwise noted, the content, data, and documents offered through this ATOM feed are public domain and made available with a Creative Commons CC0 1.0 Universal dedication. https://creativecommons.org/publicdomain/zero/1.0/"
 
@@ -145,7 +145,7 @@ def generate_xml(category)
       if bid_opp[:contracting_officer]
         # Clean up names
         name = bid_opp[:contracting_officer][:name].gsub(/(Mr|Mrs|Ms)\.*/i, "").gsub(/,\s+(Contracting Officer|Contract Administrator)/i, "").strip
-        contracting_officer = Atom::Person.new(name: name, email: bid_opp[:contracting_officer][:href], uri: "http://atlantaga.gov/index.aspx?page=#{ category }")
+        contracting_officer = Atom::Person.new(name: name, email: bid_opp[:contracting_officer][:href], uri: "http://www.atlantaga.gov/index.aspx?page=#{ category }")
       end
 
       feed.entries << Atom::Entry.new do |entry|
