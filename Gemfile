@@ -5,6 +5,7 @@ ruby "2.1.2"
 gem 'rack'
 gem 'awesome_print'
 gem 'sinatra', github: 'sinatra/sinatra'
+gem 'sinatra-activerecord'
 gem 'mixpanel-ruby'
 gem 'nokogiri'
 gem 'ratom'
