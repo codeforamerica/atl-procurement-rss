@@ -4,21 +4,51 @@ require 'mixpanel-ruby'
 
 require 'open-uri'
 require 'nokogiri'
-require 'rss'
 
 require 'pry'
 require 'awesome_print'
-require 'uuid'
 require 'atom'
+
+require 'active_record'
+require 'sinatra/activerecord'
+
+require 'base64'
+
+class Page < ActiveRecord::Base
+  scope :previous, ->(id, category) { where("id < ? AND category = ?", id, category)}
+end
 
 # Page IDs for scraping's sake!
 PROCUREMENT_RFPS = '483'
 WATERSHED_RFPS = '486'
 PUBLIC_WORKS_RFPS = '484'
 GENERAL_FUND_RFPS = '482'
+AVIATION_RFPS = '21'
 
 EMPTY_STR = /\A[[:space:]]*\z/
 BLANK_STR = /\A[[:blank:]]*\z/
+
+configure :development do
+  set :database, "sqlite3:///atl-procurement-rss.db"
+  set :show_exceptions, true
+end
+
+configure :test do
+  set :database, "sqlite3:///atl-procurement-rss.db"
+end
+
+configure :production do
+  db = URI.parse(ENV['DATABASE_URL'] || 'postgres:///localhost/atl-procurement-rss')
+
+  ActiveRecord::Base.establish_connection(
+    adapter: 'postgresql',
+    host: db.host,
+    username: db.username,
+    password: db.password,
+    database: 'atl-procurement-rss',
+    encoding: 'utf8'
+  )
+end
 
 before do
   content_type :xml
@@ -36,24 +66,43 @@ class AttributeFilter
 end
 
 get '/bids/procurement.xml' do
-  # TODO: Set unique user IDs for Mixpanel tracking.
-  @mixpanel.track('1', 'Added Procurement feed')
-  generate_xml(PROCUREMENT_RFPS)
+  atom, page = generate_xml(PROCUREMENT_RFPS)
+
+  etag(page.etag)
+  last_modified(page.updated_at)
+  atom
 end
 
 get '/bids/watershed.xml' do
-  @mixpanel.track('1', 'Added Watershed feed')
-  generate_xml(WATERSHED_RFPS)
+  atom, page = generate_xml(WATERSHED_RFPS)
+
+  etag(page.etag)
+  last_modified(page.updated_at)
+  atom
 end
 
 get '/bids/public-works.xml' do
-  @mixpanel.track('1', 'Added Public Works feed')
-  generate_xml(PUBLIC_WORKS_RFPS)
+  atom, page = generate_xml(PUBLIC_WORKS_RFPS)
+
+  etag(page.etag)
+  last_modified(page.updated_at)
+  atom
 end
 
 get '/bids/general-funds.xml' do
-  @mixpanel.track('1', 'Added General Funds feed')
-  generate_xml(GENERAL_FUND_RFPS)
+  atom, page = generate_xml(GENERAL_FUND_RFPS)
+
+  etag(page.etag)
+  last_modified(page.updated_at)
+  atom
+end
+
+get '/bids/aviation.xml' do
+  atom, page = generate_xml(AVIATION_RFPS)
+
+  etag(page.etag)
+  last_modified(page.updated_at)
+  atom
 end
 
 def generate_xml(category)
@@ -67,12 +116,25 @@ def generate_xml(category)
     GENERAL_FUND_RFPS => { xpath: %{//*[@id="ctl00_content_Screen"]/table[contains_text(., 'Award')]},
                 name: 'General Funds RFPs' },
     PROCUREMENT_RFPS => { xpath: %{//*[@id="ctl00_content_Screen"]/table[contains_text(., 'Award')]},
-               name: 'Procurement RFPs'}
+               name: 'Procurement RFPs'},
+    AVIATION_RFPS => {
+      xpath: %{//*[@id="ctl00_content_Screen"]/table/tbody/tr/td[1]/table[contains_text(., 'Award')]},
+      name: 'Aviation RFPs'
+    }
   }
 
   return unless category
 
   doc = Nokogiri::HTML(open("http://www.atlantaga.gov/index.aspx?page=#{ category }")).remove_namespaces!
+
+  @previous_page = Page.where(category: category).last
+
+  if @previous_page && Base64.encode64(@previous_page.content) == Base64.encode64(doc.to_s)
+    @page = @previous_page
+  else
+    @page = Page.create(title: xpaths[category][:name], content: doc.to_s, category: category, etag: SecureRandom.uuid)
+  end
+
   bid_table = doc.xpath(xpaths[category][:xpath], AttributeFilter.new)
 
   @bid_opportunities = []
@@ -81,10 +143,10 @@ def generate_xml(category)
     _bid = {}
 
     # Try a few things to get the project number.
-    if category == PROCUREMENT_RFPS
-      _bid[:project_id] = bid.xpath(".//tr[contains_text(., 'Project name')]/td[2]", AttributeFilter.new)[0].content
+    if GENERAL_FUND_RFPS == category
+      _bid[:project_id] = bid.xpath(".//tr[contains_text(., 'number')]/td[2]", AttributeFilter.new)[0].content
       _bid[:project_id] = _bid[:project_id].split(',')[0]
-    else
+    elsif category != PROCUREMENT_RFPS
       _bid[:project_id] = bid.xpath(".//tr[contains_text(., 'Project number')]/td[2]", AttributeFilter.new)[0].content
       _bid[:project_id] = _bid[:project_id].strip if _bid[:project_id]
     end
@@ -133,9 +195,9 @@ def generate_xml(category)
   end
 
   atom = Atom::Feed.new do |feed|
-    feed.id = "urn:uuid:#{ UUID.new.generate }"
+    feed.id = "urn:uuid:#{ SecureRandom.uuid }"
     feed.title = "City of Atlanta - #{ xpaths[category][:name] }"
-    feed.updated = Time.now.strftime("%Y-%m-%dT%H:%M:%SZ")
+    feed.updated = @last_modified
     feed.authors << Atom::Person.new(name: "Department of Procurement", email: "tiffani+DOP@codeforamerica.org")
     feed.generator = Atom::Generator.new(name: "Supply", version: "1.0", uri: "http://www.atlantaga.gov/procurement")
     feed.categories << Atom::Category.new(label: "#{ xpaths[category][:name] }", term: "#{ xpaths[category][:name] }")
@@ -146,10 +208,13 @@ def generate_xml(category)
         # Clean up names
         name = bid_opp[:contracting_officer][:name].gsub(/(Mr|Mrs|Ms)\.*/i, "").gsub(/,\s+(Contracting Officer|Contract Administrator)/i, "").strip
         contracting_officer = Atom::Person.new(name: name, email: bid_opp[:contracting_officer][:href], uri: "http://www.atlantaga.gov/index.aspx?page=#{ category }")
+      elsif !bid_opp.has_key?(:contracting_officer)
+        name = "Department of Procurement"
+        contracting_officer = Atom::Person.new(name: name, email: "kbrooks@atlantaga.gov", uri: "http://www.atlantaga.gov/index.aspx?page=#{ category }")
       end
 
       feed.entries << Atom::Entry.new do |entry|
-        entry.id = "urn:uuid:#{ UUID.new.generate }"
+        entry.id = "urn:uuid:#{ SecureRandom.uuid }"
 
         if category != PROCUREMENT_RFPS
           entry.title = "#{ bid_opp[:project_id] } - #{ bid_opp[:name].to_s }"
@@ -199,15 +264,12 @@ def generate_xml(category)
         end
 
         entry.authors << contracting_officer
-        # TODO: Don't tie this date to when someone pulls the feed.
-        entry.updated = Time.now.strftime("%Y-%m-%dT%H:%M:%SZ")
         # TODO: Beef up this summary.
         entry.summary = "A bid announcement for #{ bid_opp[:name] }."
       end
     end
   end
 
-  #File.open("/Users/tiffani/Desktop/rss-procurement.xml", "w") { |f| f.write(atom.to_xml)}
-
-  atom.to_xml
+  # If nothing's changed between page comparisons (with a very naive Base64-based comparison), say so with 304.
+  [atom.to_xml, @page]
 end
