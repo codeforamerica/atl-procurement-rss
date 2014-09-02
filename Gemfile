@@ -10,3 +10,11 @@ gem 'nokogiri'
 gem 'ratom'
 gem 'pry-byebug'
 gem 'activerecord'
+
+group :development do
+  gem 'sqlite3'
+end
+
+group :production do
+  gem 'pg'
+end
