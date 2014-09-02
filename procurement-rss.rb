@@ -45,7 +45,7 @@ configure :production do
   ActiveRecord::Base.establish_connection(
     adapter: 'postgresql',
     host: db.host,
-    username: db.username,
+    username: db.user,
     password: db.password,
     database: 'atl-procurement-rss',
     encoding: 'utf8'
