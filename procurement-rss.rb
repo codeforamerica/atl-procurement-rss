@@ -47,7 +47,7 @@ configure :production do
     host: db.host,
     username: db.user,
     password: db.password,
-    database: 'atl-procurement-rss',
+    database: db.path[1..-1],
     encoding: 'utf8'
   )
 end
